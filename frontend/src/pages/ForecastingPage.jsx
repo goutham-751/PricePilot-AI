@@ -1,153 +1,168 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, Cpu, ArrowUp, ArrowDown, Minus } from 'lucide-react';
-import { forecastTimeline, forecastModelMetrics, forecastBreakdown, demandForecastData } from '../data/mockData';
-import { ComposedChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell } from 'recharts';
-
-const dirIcon = { up: ArrowUp, down: ArrowDown, neutral: Minus };
-const dirColor = { up: 'text-stellar-green', down: 'text-supernova-red', neutral: 'text-starlight-faint' };
+import { Brain, TrendingUp, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart } from 'recharts';
+import { fetchModelMetrics, fetchLatestForecast } from '../services/api';
+import { forecastTimeline as mockTimeline } from '../data/mockData';
 
 export default function ForecastingPage() {
+    const [forecast, setForecast] = useState(null);
+    const [metrics, setMetrics] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [productId, setProductId] = useState(null);
+
+    useEffect(() => {
+        async function load() {
+            setLoading(true);
+            const metricsRes = await fetchModelMetrics();
+            if (metricsRes?.metrics) {
+                setMetrics(metricsRes.metrics);
+                // Auto-fetch forecast for first product
+                const firstProduct = metricsRes.metrics.product_metrics?.[0];
+                if (firstProduct) {
+                    setProductId(firstProduct.product_id);
+                    const forecastRes = await fetchLatestForecast(firstProduct.product_id, 14);
+                    if (forecastRes?.forecasts) setForecast(forecastRes);
+                }
+            }
+            setLoading(false);
+        }
+        load();
+    }, []);
+
+    // Build timeline from API or mock
+    const timeline = forecast?.forecasts?.length > 0
+        ? forecast.forecasts.map(f => ({
+            date: f.date || f.forecast_date,
+            predicted: f.predicted_demand || f.predicted_demand,
+            upper: f.upper_bound || (f.predicted_demand * 1.2),
+            lower: f.lower_bound || (f.predicted_demand * 0.8),
+        }))
+        : mockTimeline;
+
+    const modelInfo = metrics ? {
+        algorithm: metrics.algorithm,
+        products: metrics.products_analyzed,
+        totalForecasts: metrics.total_forecasts,
+        params: metrics.smoothing_params,
+    } : null;
+
+    const confidence = forecast?.confidence || 0.85;
+
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }} className="space-y-4 h-full overflow-y-auto pr-2">
-            {/* Header */}
             <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-5 h-5 text-hyper-cyan" />
+                <Brain className="w-5 h-5 text-hyper-cyan" />
                 <h2 className="mono-label text-hyper-cyan text-sm">DEMAND FORECASTING</h2>
-                <span className="mono-label text-[0.5rem] text-starlight-faint ml-auto">api/forecasting.py • models/demand_model.py</span>
+                <span className="mono-label text-[0.5rem] text-starlight-faint ml-auto">
+                    {loading ? 'LOADING...' : `CONFIDENCE: ${(confidence * 100).toFixed(0)}%`}
+                </span>
             </div>
 
-            {/* Full-width Forecast Chart */}
+            {/* Model Performance Metrics */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                    { label: 'Algorithm', value: modelInfo?.algorithm?.split(' ')[0] || 'Holt-Winters', icon: Brain, color: 'text-hyper-cyan' },
+                    { label: 'Confidence', value: `${(confidence * 100).toFixed(0)}%`, icon: CheckCircle, color: confidence > 0.8 ? 'text-stellar-green' : 'text-yellow-400' },
+                    { label: 'Products', value: modelInfo?.products || '—', icon: TrendingUp, color: 'text-hyper-cyan' },
+                    { label: 'Forecasts', value: modelInfo?.totalForecasts || '—', icon: Clock, color: 'text-starlight' },
+                ].map((m, i) => {
+                    const Icon = m.icon;
+                    return (
+                        <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.08 }} className="cosmic-card p-4 text-center">
+                            <Icon className={`w-5 h-5 ${m.color} mx-auto mb-2`} />
+                            <div className="mono-label text-[0.5rem] text-starlight-faint">{m.label}</div>
+                            <div className={`font-mono text-lg font-bold ${m.color} mt-1`}>{m.value}</div>
+                        </motion.div>
+                    );
+                })}
+            </div>
+
+            {/* Forecast Timeline Chart */}
             <div className="cosmic-card p-4">
-                <div className="mono-label text-hyper-cyan text-[0.65rem] mb-3">FORECAST TIMELINE — PROPHET + LIGHTGBM ENSEMBLE</div>
+                <div className="mono-label text-hyper-cyan text-[0.65rem] mb-3">
+                    FORECAST TIMELINE — {timeline.length} DAY HORIZON
+                </div>
                 <div className="h-[280px]">
                     <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={forecastTimeline}>
+                        <AreaChart data={timeline}>
                             <defs>
-                                <linearGradient id="confGrad" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#00F0FF" stopOpacity={0.15} />
-                                    <stop offset="100%" stopColor="#00F0FF" stopOpacity={0.02} />
+                                <linearGradient id="forecast_band" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#00F0FF" stopOpacity={0.15} />
+                                    <stop offset="95%" stopColor="#00F0FF" stopOpacity={0} />
                                 </linearGradient>
                             </defs>
-                            <XAxis dataKey="month" tick={{ fill: '#666', fontSize: 10, fontFamily: 'JetBrains Mono' }} axisLine={{ stroke: '#1a1a1a' }} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
+                            <XAxis dataKey="date" tick={{ fill: '#666', fontSize: 9, fontFamily: 'JetBrains Mono' }} axisLine={{ stroke: '#1a1a1a' }}
+                                tickFormatter={d => d?.slice(5) || d} />
                             <YAxis tick={{ fill: '#666', fontSize: 10, fontFamily: 'JetBrains Mono' }} axisLine={{ stroke: '#1a1a1a' }} />
                             <Tooltip contentStyle={{ background: '#050505', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, fontFamily: 'JetBrains Mono', fontSize: 11 }} />
-                            <ReferenceLine x="Jan" stroke="rgba(0,240,255,0.3)" strokeDasharray="3 3" label={{ value: 'NOW', fill: '#00F0FF', fontSize: 10, fontFamily: 'JetBrains Mono' }} />
-                            <Area dataKey="upper" stroke="none" fill="url(#confGrad)" />
-                            <Area dataKey="lower" stroke="none" fill="#000000" />
-                            <Line type="monotone" dataKey="past" stroke="#00F0FF" strokeWidth={2} dot={{ fill: '#00F0FF', r: 3 }} connectNulls={false} name="Actual" />
-                            <Line type="monotone" dataKey="forecast" stroke="#00F0FF" strokeWidth={2} strokeDasharray="6 3" dot={{ fill: '#050505', stroke: '#00F0FF', r: 3 }} connectNulls={false} name="Forecast" />
-                        </ComposedChart>
+                            <Area type="monotone" dataKey="upper" stroke="none" fill="url(#forecast_band)" name="Upper Bound" />
+                            <Area type="monotone" dataKey="lower" stroke="none" fill="none" name="Lower Bound" />
+                            <Line type="monotone" dataKey="predicted" stroke="#00F0FF" strokeWidth={2} dot={false} name="Predicted" />
+                        </AreaChart>
                     </ResponsiveContainer>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Model Metrics */}
+            {/* Forecast Decomposition */}
+            {modelInfo?.params && (
                 <div className="cosmic-card p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                        <Cpu className="w-4 h-4 text-stellar-green" />
-                        <span className="mono-label text-stellar-green text-[0.65rem]">MODEL PERFORMANCE</span>
-                    </div>
-                    <div className="space-y-2">
+                    <div className="mono-label text-hyper-cyan text-[0.65rem] mb-3">MODEL DECOMPOSITION</div>
+                    <div className="grid grid-cols-3 gap-4 text-center">
                         {[
-                            { label: 'Model', value: forecastModelMetrics.model },
-                            { label: 'Version', value: forecastModelMetrics.version },
-                            { label: 'MAPE', value: `${forecastModelMetrics.mape}%`, highlight: true },
-                            { label: 'RMSE', value: forecastModelMetrics.rmse.toString() },
-                            { label: 'R² Score', value: forecastModelMetrics.r2.toString(), highlight: true },
-                            { label: 'Training Points', value: forecastModelMetrics.trainingDataPoints.toLocaleString() },
-                            { label: 'Features', value: forecastModelMetrics.features.toString() },
-                            { label: 'CV Folds', value: forecastModelMetrics.crossValidationFolds.toString() },
-                            { label: 'Last Trained', value: forecastModelMetrics.lastTrained },
-                        ].map((item, i) => (
-                            <div key={i} className="flex justify-between items-center py-1.5 px-2 rounded hover:bg-white/[0.02]">
-                                <span className="mono-label text-[0.55rem] text-starlight-faint">{item.label}</span>
-                                <span className={`font-mono text-xs ${item.highlight ? 'text-stellar-green' : 'text-starlight'}`}>{item.value}</span>
-                            </div>
+                            { label: 'Level (α)', value: modelInfo.params.alpha, desc: 'Smoothing factor' },
+                            { label: 'Trend (β)', value: modelInfo.params.beta, desc: 'Trend responsiveness' },
+                            { label: 'Season (γ)', value: modelInfo.params.gamma, desc: 'Seasonal weight' },
+                        ].map((p, i) => (
+                            <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 + i * 0.1 }}
+                                className="bg-white/[0.02] rounded-lg p-3">
+                                <div className="mono-label text-[0.5rem] text-starlight-faint">{p.label}</div>
+                                <div className="font-mono text-xl text-hyper-cyan font-bold mt-1">{p.value}</div>
+                                <div className="text-[0.5rem] text-starlight-faint mt-1">{p.desc}</div>
+                            </motion.div>
                         ))}
                     </div>
-                    <div className="mt-3 pt-3 border-t border-glass-border">
-                        <div className="mono-label text-[0.5rem] text-starlight-faint mb-1.5">SEASONAL COMPONENTS</div>
-                        <div className="flex flex-wrap gap-1.5">
-                            {forecastModelMetrics.seasonalComponents.map((s) => (
-                                <span key={s} className="px-2 py-0.5 rounded text-[0.5rem] font-mono bg-hyper-cyan/5 border border-hyper-cyan/15 text-hyper-cyan">{s}</span>
-                            ))}
-                        </div>
-                        <div className="mono-label text-[0.5rem] text-starlight-faint mt-2 mb-1.5">REGRESSORS</div>
-                        <div className="flex flex-wrap gap-1.5">
-                            {forecastModelMetrics.regressors.map((r) => (
-                                <span key={r} className="px-2 py-0.5 rounded text-[0.5rem] font-mono bg-stellar-green/5 border border-stellar-green/15 text-stellar-green">{r}</span>
-                            ))}
-                        </div>
-                    </div>
                 </div>
+            )}
 
-                {/* Forecast Breakdown */}
+            {/* Predictions Table */}
+            {forecast?.forecasts?.length > 0 && (
                 <div className="cosmic-card p-4">
-                    <div className="mono-label text-hyper-cyan text-[0.65rem] mb-3">FORECAST DECOMPOSITION</div>
-                    <div className="h-[200px] mb-4">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={forecastBreakdown} layout="vertical">
-                                <XAxis type="number" tick={{ fill: '#666', fontSize: 10, fontFamily: 'JetBrains Mono' }} axisLine={{ stroke: '#1a1a1a' }} unit="%" />
-                                <YAxis type="category" dataKey="component" tick={{ fill: '#999', fontSize: 9, fontFamily: 'JetBrains Mono' }} axisLine={{ stroke: '#1a1a1a' }} width={120} />
-                                <Tooltip contentStyle={{ background: '#050505', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, fontFamily: 'JetBrains Mono', fontSize: 11 }} />
-                                <Bar dataKey="contribution" radius={[0, 4, 4, 0]}>
-                                    {forecastBreakdown.map((entry, i) => (
-                                        <Cell key={i} fill={entry.direction === 'up' ? '#39FF14' : entry.direction === 'down' ? '#FF2A6D' : '#555'} fillOpacity={0.7} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    <div className="space-y-1.5">
-                        {forecastBreakdown.map((item, i) => {
-                            const Icon = dirIcon[item.direction];
-                            return (
-                                <div key={i} className="flex items-center justify-between py-1 px-2 rounded hover:bg-white/[0.02]">
-                                    <span className="font-mono text-xs text-starlight-dim">{item.component}</span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-mono text-xs text-hyper-cyan">{item.contribution}%</span>
-                                        <Icon className={`w-3 h-3 ${dirColor[item.direction]}`} />
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
-
-            {/* Actual vs Forecast Table */}
-            <div className="cosmic-card p-4">
-                <div className="mono-label text-hyper-cyan text-[0.65rem] mb-3">MONTHLY ACTUAL vs FORECAST</div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-[0.65rem] font-mono">
-                        <thead>
-                            <tr className="text-starlight-faint border-b border-glass-border">
-                                <th className="text-left py-2 px-2">MONTH</th>
-                                <th className="text-right py-2 px-2">ACTUAL</th>
-                                <th className="text-right py-2 px-2">FORECAST</th>
-                                <th className="text-right py-2 px-2">ERROR</th>
-                                <th className="text-left py-2 px-2">SEASON</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {demandForecastData.map((row, i) => {
-                                const error = ((row.actual - row.forecast) / row.actual * 100).toFixed(1);
-                                return (
+                    <div className="mono-label text-hyper-cyan text-[0.65rem] mb-3">PREDICTED DEMAND</div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-[0.6rem] font-mono">
+                            <thead>
+                                <tr className="text-starlight-faint border-b border-glass-border">
+                                    <th className="text-left py-2 px-2">DATE</th>
+                                    <th className="text-right py-2 px-2">PREDICTED</th>
+                                    <th className="text-right py-2 px-2">LOWER</th>
+                                    <th className="text-right py-2 px-2">UPPER</th>
+                                    <th className="text-left py-2 px-2">DAY</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {forecast.forecasts.slice(0, 14).map((p, i) => (
                                     <tr key={i} className="border-b border-glass-border/50 hover:bg-white/[0.02]">
-                                        <td className="py-2 px-2 text-starlight">{row.month}</td>
-                                        <td className="py-2 px-2 text-right text-starlight">{row.actual.toLocaleString()}</td>
-                                        <td className="py-2 px-2 text-right text-hyper-cyan">{row.forecast.toLocaleString()}</td>
-                                        <td className={`py-2 px-2 text-right ${Math.abs(error) < 3 ? 'text-stellar-green' : 'text-yellow-400'}`}>{error > 0 ? '+' : ''}{error}%</td>
-                                        <td className="py-2 px-2 text-starlight-faint">{row.season}</td>
+                                        <td className="py-2 px-2 text-starlight">{p.date || p.forecast_date}</td>
+                                        <td className="py-2 px-2 text-right text-hyper-cyan font-semibold">
+                                            {(p.predicted_demand || p.predicted)?.toFixed(0)}
+                                        </td>
+                                        <td className="py-2 px-2 text-right text-starlight-faint">
+                                            {(p.lower_bound || p.lower)?.toFixed(0)}
+                                        </td>
+                                        <td className="py-2 px-2 text-right text-starlight-faint">
+                                            {(p.upper_bound || p.upper)?.toFixed(0)}
+                                        </td>
+                                        <td className="py-2 px-2 text-starlight-dim">{p.day_of_week || '—'}</td>
                                     </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
+            )}
         </motion.div>
     );
 }

@@ -1,6 +1,5 @@
 """
 Supabase Client — Singleton connection to Supabase PostgreSQL.
-Validates env vars at import time and exposes a single `supabase` instance.
 """
 
 import os
@@ -22,4 +21,4 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     sys.exit(1)
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-print("✓ Supabase client initialized successfully")
+print(" Supabase client initialized successfully")
