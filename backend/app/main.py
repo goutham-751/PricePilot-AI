@@ -1,12 +1,3 @@
-"""
-PricePilot AI — FastAPI Application Entry Point
-
-The core intelligence API for pricing recommendations,
-demand forecasting, and competitor analysis.
-
-Run: uvicorn main:app --reload --port 8000
-"""
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
