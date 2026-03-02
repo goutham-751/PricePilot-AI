@@ -1,93 +1,71 @@
 import { motion } from 'framer-motion';
-import { GitBranch, CheckCircle, Clock, XCircle, Play, Terminal } from 'lucide-react';
-import { pipelineJobs, pipelineLogs } from '../data/mockData';
+import { Database, CheckCircle, Clock, XCircle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { checkHealth } from '../services/api';
+import useApiData from '../hooks/useApiData';
+import ErrorState from '../components/ui/ErrorState';
+import RefreshIndicator from '../components/ui/RefreshIndicator';
 
-const jobStatusConfig = {
-    running: { icon: Play, color: 'text-hyper-cyan', bg: 'bg-hyper-cyan/10 border-hyper-cyan/20', label: 'RUNNING' },
-    idle: { icon: Clock, color: 'text-starlight-faint', bg: 'bg-white/[0.02] border-glass-border', label: 'IDLE' },
-    completed: { icon: CheckCircle, color: 'text-stellar-green', bg: 'bg-stellar-green/10 border-stellar-green/20', label: 'COMPLETED' },
-    failed: { icon: XCircle, color: 'text-supernova-red', bg: 'bg-supernova-red/10 border-supernova-red/20', label: 'FAILED' },
-};
-
-const logColor = { INFO: 'text-hyper-cyan', OK: 'text-stellar-green', WARN: 'text-yellow-400', ERROR: 'text-supernova-red' };
+const PIPELINE_JOBS = [
+    { id: 'competitor_scraper', name: 'Competitor Price Scraper', schedule: 'Every 6 hours', endpoint: '/competitors/scrape', type: 'scraper' },
+    { id: 'trend_collector', name: 'Google Trends Collector', schedule: 'Every 12 hours', endpoint: '/analytics/signals/all', type: 'collector' },
+    { id: 'demand_forecaster', name: 'Demand Forecast Pipeline', schedule: 'Every 24 hours', endpoint: '/forecasting/predict/{id}', type: 'ml' },
+    { id: 'price_optimizer', name: 'Price Optimization Engine', schedule: 'Every 24 hours', endpoint: '/pricing/optimize/{id}', type: 'ml' },
+    { id: 'decision_engine', name: 'Decision Engine', schedule: 'On demand / triggers', endpoint: '/pricing/recommendations', type: 'engine' },
+];
 
 export default function DataPipelinePage() {
+    const { data: health, loading, error, refetch, lastUpdated, isRefreshing } = useApiData(() => checkHealth(), { refreshInterval: 30000 });
+    const connected = health?.status === 'healthy';
+    const dbOk = health?.database === 'connected';
+
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }} className="space-y-4 h-full overflow-y-auto pr-2">
-            {/* Header */}
             <div className="flex items-center gap-2 mb-2">
-                <GitBranch className="w-5 h-5 text-hyper-cyan" />
+                <Database className="w-5 h-5 text-hyper-cyan" />
                 <h2 className="mono-label text-hyper-cyan text-sm">DATA PIPELINE</h2>
-                <span className="mono-label text-[0.5rem] text-starlight-faint ml-auto">services/scraper.py • services/trends_fetcher.py • core/scheduler.py</span>
+                <span className="mono-label text-[0.5rem] text-starlight-faint ml-auto flex items-center gap-2">
+                    <RefreshIndicator isRefreshing={isRefreshing} lastUpdated={lastUpdated} />
+                </span>
             </div>
 
-            {/* Jobs Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                {pipelineJobs.map((job, i) => {
-                    const config = jobStatusConfig[job.status];
-                    const Icon = config.icon;
-                    return (
-                        <motion.div key={job.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
-                            className="cosmic-card p-4">
-                            <div className="flex items-start justify-between mb-2">
-                                <div>
-                                    <div className="font-mono text-xs text-starlight font-semibold">{job.name}</div>
-                                    <div className="text-[0.55rem] text-starlight-faint mt-0.5">{job.service}</div>
-                                </div>
-                                <span className={`flex items-center gap-1 text-[0.5rem] font-mono px-2 py-0.5 rounded border ${config.bg} ${config.color}`}>
-                                    <Icon className={`w-3 h-3 ${job.status === 'running' ? 'animate-pulse' : ''}`} />
-                                    {config.label}
-                                </span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 mt-3 text-[0.55rem]">
-                                <div>
-                                    <div className="mono-label text-[0.45rem] text-starlight-faint">SCHEDULE</div>
-                                    <code className="text-hyper-cyan">{job.cron}</code>
-                                </div>
-                                <div>
-                                    <div className="mono-label text-[0.45rem] text-starlight-faint">AVG DURATION</div>
-                                    <span className="text-starlight">{job.avgDuration}</span>
-                                </div>
-                                <div>
-                                    <div className="mono-label text-[0.45rem] text-starlight-faint">LAST RUN</div>
-                                    <span className="text-starlight-dim">{job.lastRun}</span>
-                                </div>
-                                <div>
-                                    <div className="mono-label text-[0.45rem] text-starlight-faint">NEXT RUN</div>
-                                    <span className="text-hyper-cyan">{job.nextRun}</span>
-                                </div>
-                            </div>
-                            {/* Success rate bar */}
-                            <div className="mt-3">
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="mono-label text-[0.45rem] text-starlight-faint">SUCCESS RATE</span>
-                                    <span className="font-mono text-[0.55rem] text-stellar-green">{job.successRate}%</span>
-                                </div>
-                                <div className="w-full h-1 rounded-full bg-white/5 overflow-hidden">
-                                    <motion.div className="h-full rounded-full bg-stellar-green" initial={{ width: 0 }} animate={{ width: `${job.successRate}%` }}
-                                        transition={{ duration: 1, ease: 'easeOut', delay: 0.5 + i * 0.1 }}
-                                        style={{ boxShadow: '0 0 6px rgba(57,255,20,0.3)' }} />
-                                </div>
-                            </div>
-                        </motion.div>
-                    );
-                })}
+            {/* Live Status */}
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+                    className={`cosmic-card p-4 text-center ${connected ? 'border-stellar-green/20' : 'border-supernova-red/20'}`}>
+                    {connected ? <Wifi className="w-5 h-5 text-stellar-green mx-auto mb-2" /> : <WifiOff className="w-5 h-5 text-supernova-red mx-auto mb-2" />}
+                    <div className="mono-label text-[0.5rem] text-starlight-faint">API STATUS</div>
+                    <div className={`font-mono text-sm font-bold mt-1 ${connected ? 'text-stellar-green' : 'text-supernova-red'}`}>{connected ? 'CONNECTED' : loading ? 'CHECKING...' : 'OFFLINE'}</div>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                    className={`cosmic-card p-4 text-center ${dbOk ? 'border-stellar-green/20' : 'border-supernova-red/20'}`}>
+                    <Database className={`w-5 h-5 mx-auto mb-2 ${dbOk ? 'text-stellar-green' : 'text-supernova-red'}`} />
+                    <div className="mono-label text-[0.5rem] text-starlight-faint">DATABASE</div>
+                    <div className={`font-mono text-sm font-bold mt-1 ${dbOk ? 'text-stellar-green' : 'text-supernova-red'}`}>{dbOk ? 'SUPABASE OK' : loading ? 'CHECKING...' : 'DISCONNECTED'}</div>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                    className="cosmic-card p-4 text-center">
+                    <Clock className="w-5 h-5 text-hyper-cyan mx-auto mb-2" />
+                    <div className="mono-label text-[0.5rem] text-starlight-faint">PIPELINES</div>
+                    <div className="font-mono text-sm font-bold text-hyper-cyan mt-1">{PIPELINE_JOBS.length} ACTIVE</div>
+                </motion.div>
             </div>
 
-            {/* Pipeline Log */}
+            {error && <ErrorState message={error} onRetry={refetch} compact />}
+
+            {/* Pipeline Jobs */}
             <div className="cosmic-card p-4">
-                <div className="flex items-center gap-2 mb-3">
-                    <Terminal className="w-4 h-4 text-stellar-green" />
-                    <span className="mono-label text-stellar-green text-[0.65rem]">PIPELINE LOG</span>
-                </div>
-                <div className="bg-void/50 rounded-lg p-3 max-h-[300px] overflow-y-auto space-y-0.5">
-                    {pipelineLogs.map((log, i) => (
-                        <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}
-                            className="flex items-start gap-3 py-1.5 font-mono text-[0.6rem]">
-                            <span className="text-starlight-faint shrink-0">{log.time}</span>
-                            <span className={`shrink-0 w-10 text-center ${logColor[log.level]}`}>[{log.level}]</span>
-                            <span className="text-starlight-faint shrink-0">{log.job}</span>
-                            <span className="text-starlight-dim">{log.message}</span>
+                <div className="mono-label text-hyper-cyan text-[0.65rem] mb-3">PIPELINE JOBS</div>
+                <div className="space-y-2">
+                    {PIPELINE_JOBS.map((job, i) => (
+                        <motion.div key={job.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 + i * 0.06 }}
+                            className="flex items-center gap-3 py-3 px-3 rounded-lg bg-white/[0.01] hover:bg-white/[0.02] border border-glass-border transition-colors">
+                            <div className={`w-2 h-2 rounded-full ${connected ? 'bg-stellar-green animate-pulse' : 'bg-supernova-red'}`} />
+                            <div className="flex-1">
+                                <div className="font-mono text-xs text-starlight">{job.name}</div>
+                                <div className="text-[0.55rem] text-starlight-faint">{job.schedule}</div>
+                            </div>
+                            <span className="text-[0.5rem] font-mono text-starlight-faint px-2 py-0.5 rounded bg-white/[0.02] border border-glass-border">{job.type}</span>
+                            <code className="text-[0.5rem] font-mono text-hyper-cyan/60">{job.endpoint}</code>
                         </motion.div>
                     ))}
                 </div>

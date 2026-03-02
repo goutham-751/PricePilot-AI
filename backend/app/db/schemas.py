@@ -125,10 +125,10 @@ class PriceRecommendationCreate(BaseModel):
     """Input schema for a price recommendation."""
     product_id: str = Field(..., description="UUID FK → products.id")
     recommended_price: float = Field(..., gt=0)
-    expected_revenue: float = Field(..., ge=0)
+    expected_revenue_change: float = Field(..., ge=0)
     confidence: float = Field(..., ge=0, le=1)
 
-    @field_validator("recommended_price", "expected_revenue")
+    @field_validator("recommended_price", "expected_revenue_change")
     @classmethod
     def round_money(cls, v: float) -> float:
         return round(v, 2)
@@ -139,6 +139,6 @@ class PriceRecommendationResponse(BaseModel):
     id: str
     product_id: str
     recommended_price: float
-    expected_revenue: float
+    expected_revenue_change: float
     confidence: float
     created_at: str

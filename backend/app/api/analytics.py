@@ -122,3 +122,64 @@ async def get_kpis():
             "computed_at": all_signals[0].get("computed_at") if all_signals else None,
         },
     }
+
+
+# ── GET /analytics/summary ──────────────────────────────────────────
+
+@router.get("/summary")
+async def get_analytics_summary():
+    """
+    High-level intelligence summary for the dashboard.
+    Returns demand momentum, price opportunity score,
+    volatility index, and trend direction.
+    """
+    all_signals = await engineer.compute_all_products()
+
+    if not all_signals:
+        return {
+            "status": "no_data",
+            "summary": {
+                "demand_momentum": 0,
+                "price_opportunity_score": 0,
+                "volatility_index": 0,
+                "trend_direction": "neutral",
+                "total_products": 0,
+            },
+        }
+
+    n = len(all_signals)
+
+    # Demand momentum: average trend momentum across products
+    demand_momentum = round(
+        sum(s.get("trend_momentum", 0) for s in all_signals) / n, 2
+    )
+
+    # Price opportunity: how far avg price position is from optimal (1.0)
+    avg_position = sum(s.get("price_position_index", 1) for s in all_signals) / n
+    price_opportunity = round(max(0, (avg_position - 1.0)) * 100, 1)
+
+    # Volatility index: percentage of products with medium/high volatility
+    vol_high = sum(1 for s in all_signals if s.get("price_volatility") in ("medium", "high"))
+    volatility_index = round((vol_high / n) * 100, 1)
+
+    # Trend direction
+    avg_growth = sum(s.get("demand_growth_rate", 0) for s in all_signals) / n
+    if avg_growth > 0.05:
+        trend_direction = "up"
+    elif avg_growth < -0.05:
+        trend_direction = "down"
+    else:
+        trend_direction = "neutral"
+
+    return {
+        "status": "ok",
+        "summary": {
+            "demand_momentum": demand_momentum,
+            "price_opportunity_score": price_opportunity,
+            "volatility_index": volatility_index,
+            "trend_direction": trend_direction,
+            "total_products": n,
+            "avg_demand_growth": round(avg_growth * 100, 2),
+            "avg_price_position": round(avg_position, 3),
+        },
+    }

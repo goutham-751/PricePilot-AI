@@ -283,7 +283,7 @@ class PriceOptimizer:
         self,
         product_id: str,
         recommended_price: float,
-        expected_revenue: float,
+        expected_revenue_change: float,
         confidence: float,
     ) -> int:
         """Save price recommendation to Supabase."""
@@ -291,7 +291,7 @@ class PriceOptimizer:
             validated = PriceRecommendationCreate(
                 product_id=product_id,
                 recommended_price=recommended_price,
-                expected_revenue=expected_revenue,
+                expected_revenue_change=expected_revenue_change,
                 confidence=confidence,
             )
             response = (

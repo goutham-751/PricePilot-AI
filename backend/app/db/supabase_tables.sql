@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS price_recommendations (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
     recommended_price NUMERIC(10,2) NOT NULL CHECK (recommended_price > 0),
-    expected_revenue NUMERIC(12,2),
+    expected_revenue_change NUMERIC(12,2),
     confidence NUMERIC(5,4) CHECK (confidence BETWEEN 0 AND 1),
     created_at TIMESTAMPTZ DEFAULT now()
 );

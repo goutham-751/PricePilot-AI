@@ -235,3 +235,36 @@ h6 {
     linear-gradient(90deg, rgba(0, 240, 255, 0.02) 1px, transparent 1px);
   background-size: 80px 80px;
 }
+
+/* ── Data Load Fade-In ───────────────────────────── */
+@keyframes data-load {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-data-load {
+  animation: data-load 0.4s ease-out forwards;
+}
+
+/* ── Refresh Pulse ───────────────────────────────── */
+@keyframes refresh-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-refresh-spin {
+  animation: refresh-spin 1s linear infinite;
+}
+
+/* ── Metric Hover Glow ───────────────────────────── */
+.metric-glow:hover {
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.12),
+              0 0 60px rgba(0, 240, 255, 0.04);
+  border-color: rgba(0, 240, 255, 0.15);
+}

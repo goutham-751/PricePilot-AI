@@ -5,6 +5,7 @@ from api.competitors import router as competitors_router
 from api.analytics import router as analytics_router
 from api.forecasting import router as forecasting_router
 from api.pricing import router as pricing_router
+from api.products import router as products_router
 
 # ── App Init ─────────────────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ app.add_middleware(
 
 # ── Routers ──────────────────────────────────────────────────────────
 
+app.include_router(products_router)
 app.include_router(competitors_router)
 app.include_router(analytics_router)
 app.include_router(forecasting_router)
