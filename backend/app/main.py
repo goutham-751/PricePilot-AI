@@ -6,6 +6,12 @@ from api.analytics import router as analytics_router
 from api.forecasting import router as forecasting_router
 from api.pricing import router as pricing_router
 from api.products import router as products_router
+from api.demo_simulation import router as demo_router
+
+# ── DB Init ──────────────────────────────────────────────────────────
+
+from db.init_db import init_db
+init_db()
 
 # ── App Init ─────────────────────────────────────────────────────────
 
@@ -42,6 +48,7 @@ app.include_router(competitors_router)
 app.include_router(analytics_router)
 app.include_router(forecasting_router)
 app.include_router(pricing_router)
+app.include_router(demo_router)
 
 # ── Health Check ─────────────────────────────────────────────────────
 

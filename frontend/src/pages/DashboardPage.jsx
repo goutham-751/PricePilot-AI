@@ -14,6 +14,8 @@ import DecisionEnginePage from './DecisionEnginePage';
 import DataPipelinePage from './DataPipelinePage';
 import SystemStatusPage from './SystemStatusPage';
 
+import DemoControlPanel from '../components/dashboard/DemoControlPanel';
+
 function CommandCenter({ xrayMode }) {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-120px)]">
@@ -23,8 +25,9 @@ function CommandCenter({ xrayMode }) {
             <div className="lg:col-span-6 min-h-[400px] lg:min-h-0">
                 <TimeWarpChart xrayMode={xrayMode} />
             </div>
-            <div className="lg:col-span-3 min-h-[400px] lg:min-h-0">
+            <div className="lg:col-span-3 min-h-[400px] lg:min-h-0 flex flex-col">
                 <AIActionPanel xrayMode={xrayMode} />
+                {!xrayMode && <DemoControlPanel />}
             </div>
         </div>
     );

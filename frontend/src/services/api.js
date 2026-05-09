@@ -142,6 +142,22 @@ export async function checkHealth() {
     return apiFetch('/health');
 }
 
+// ── Demo / Simulation ─────────────────────────────────────────────────
+
+export async function applyOptimalPrice(productId, price) {
+    return apiFetch('/demo/apply-price', {
+        method: 'POST',
+        body: JSON.stringify({ product_id: productId, price }),
+    });
+}
+
+export async function simulateMarketEvent(productId, eventType) {
+    return apiFetch('/demo/simulate-market', {
+        method: 'POST',
+        body: JSON.stringify({ product_id: productId, event_type: eventType }),
+    });
+}
+
 // ── Utility ─────────────────────────────────────────────────────────
 
 export { apiFetch, safeFetch, API_BASE };

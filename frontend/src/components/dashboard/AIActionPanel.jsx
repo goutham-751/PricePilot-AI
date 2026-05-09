@@ -45,12 +45,21 @@ export default function AIActionPanel({ xrayMode }) {
         return () => clearInterval(interval);
     }, [loadData]);
 
-    const handleSimulate = () => {
+    const handleSimulate = async () => {
+        if (!pricing?.product_id || !pricing?.optimal_price) return;
         setSimulating(true);
-        setTimeout(() => {
+        try {
+            const { applyOptimalPrice } = await import('../../services/api');
+            await applyOptimalPrice(pricing.product_id, pricing.optimal_price);
             setSimulating(false);
             setSimulated(true);
-        }, 2000);
+            setTimeout(() => {
+                loadData(true); // Refresh data from backend to show the new state globally!
+            }, 1000);
+        } catch (err) {
+            console.error(err);
+            setSimulating(false);
+        }
     };
 
     const opt = pricing;
