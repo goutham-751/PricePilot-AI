@@ -131,16 +131,15 @@ async def get_model_metrics():
             count = len(forecasts)
             total_forecasts += count
 
-            if count > 0:
-                avg_demand = sum(float(f["predicted_demand"]) for f in forecasts) / count
-                avg_conf = sum(float(f["confidence"]) for f in forecasts) / count
-                product_metrics.append({
-                    "product_id": p["id"],
-                    "product_name": p["name"],
-                    "forecast_count": count,
-                    "avg_predicted_demand": round(avg_demand, 1),
-                    "avg_confidence": round(avg_conf, 4),
-                })
+            avg_demand = sum(float(f["predicted_demand"]) for f in forecasts) / count if count > 0 else 0.0
+            avg_conf = sum(float(f["confidence"]) for f in forecasts) / count if count > 0 else 0.0
+            product_metrics.append({
+                "product_id": p["id"],
+                "product_name": p["name"],
+                "forecast_count": count,
+                "avg_predicted_demand": round(avg_demand, 1),
+                "avg_confidence": round(avg_conf, 4),
+            })
         except Exception:
             continue
 

@@ -18,7 +18,7 @@ export default function PricingEnginePage() {
         const fp = sigRes?.signals?.[0];
         if (fp) {
             setOptLoading(true);
-            try { const r = await fetchOptimization(fp.product_id); if (r?.optimization) setOptimization(r.optimization); } catch { }
+            try { const r = await fetchOptimization(fp.product_id); if (r?.optimization) setOptimization(r.optimization); } catch (e) { console.warn(e); }
             setOptLoading(false);
         }
     }, [sigRes]);

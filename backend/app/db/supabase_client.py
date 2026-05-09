@@ -20,6 +20,7 @@ class MockTableQuery:
         self._ltes = []
         self._order = None
         self._limit = None
+        self._offset = None
         self._action = "select"
         self._payload = None
 
@@ -62,6 +63,11 @@ class MockTableQuery:
         self._limit = max_limit
         return self
 
+    def range(self, start: int, end: int):
+        self._limit = end - start + 1
+        self._offset = start
+        return self
+
     def execute(self):
         if self._action == "select":
             return self._execute_select()
@@ -97,6 +103,9 @@ class MockTableQuery:
 
         if self._limit:
             query += f" LIMIT {self._limit}"
+            
+        if self._offset is not None:
+            query += f" OFFSET {self._offset}"
 
         rows = execute_query(query, tuple(params))
         return MockResponse(data=rows)
